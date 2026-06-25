@@ -21,7 +21,6 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0;
 }
 .logo {
   height: 48px;
@@ -42,17 +41,13 @@ body {
   color: #C8922A;
   margin-bottom: 40px;
 }
-#loading { display: none; }
-.spinner-wrap {
-  margin-bottom: 20px;
-}
 .spinner {
   width: 32px;
   height: 32px;
   border: 3px solid rgba(255,255,255,0.1);
   border-top-color: #C8922A;
   border-radius: 50%;
-  margin: 0 auto;
+  margin: 0 auto 20px;
   animation: spin 0.85s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -87,16 +82,12 @@ body {
   <div class="divider"></div>
   <div class="label">Lead Hunter</div>
 
-  <div id="loading">
-    <div class="spinner-wrap">
-      <div class="spinner"></div>
-    </div>
-    <div class="message">
-      Waking up the system<span class="dots"><span>.</span><span>.</span><span>.</span></span>
-    </div>
-    <div class="submessage">
-      Just a moment — this happens after a period of inactivity.
-    </div>
+  <div class="spinner"></div>
+  <div class="message">
+    Waking up the system<span class="dots"><span>.</span><span>.</span><span>.</span></span>
+  </div>
+  <div class="submessage">
+    Just a moment — this happens after a period of inactivity.
   </div>
 </div>
 
@@ -104,49 +95,34 @@ body {
 (function () {
   var APP_URL = 'https://ps-hunter.onrender.com';
   var target = APP_URL + window.location.pathname + window.location.search + window.location.hash;
-  var loadingEl = document.getElementById('loading');
-  var coldStartShown = false;
-  var FAST_TIMEOUT_MS = 1500;
-  var RETRY_INTERVAL_MS = 2500;
-
-  function showLoadingScreen() {
-    if (!coldStartShown) {
-      coldStartShown = true;
-      loadingEl.style.display = 'block';
-    }
-  }
+  var RETRY_INTERVAL_MS = 3000;
+  var TIMEOUT_MS = 5000;
 
   function redirectNow() {
     window.location.replace(target);
   }
 
-  function ping(onSuccess, onFail) {
+  function ping() {
     var controller = new AbortController();
-    var timedOut = false;
-    var timer = setTimeout(function () {
-      timedOut = true;
-      controller.abort();
-    }, FAST_TIMEOUT_MS);
+    var timer = setTimeout(function () { controller.abort(); }, TIMEOUT_MS);
 
     fetch(APP_URL + '/api/health', { signal: controller.signal, cache: 'no-store' })
       .then(function (res) {
         clearTimeout(timer);
-        if (res.ok) { onSuccess(); } else { onFail(); }
+        if (res.ok) {
+          redirectNow();
+        } else {
+          setTimeout(ping, RETRY_INTERVAL_MS);
+        }
       })
       .catch(function () {
         clearTimeout(timer);
-        onFail();
+        setTimeout(ping, RETRY_INTERVAL_MS);
       });
   }
 
-  function pollUntilWarm() {
-    ping(redirectNow, function () {
-      showLoadingScreen();
-      setTimeout(pollUntilWarm, RETRY_INTERVAL_MS);
-    });
-  }
-
-  pollUntilWarm();
+  // First attempt after a short delay so the page renders first
+  setTimeout(ping, 500);
 })();
 </script>
 </body>
